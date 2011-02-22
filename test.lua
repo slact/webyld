@@ -1,5 +1,6 @@
 #!/usr/bin/env lua
 local Request = require "wsapi.request"
+local Response = require "wsapi.response"
 function debug.dump(tbl)
 	local function tcopy(t) local nt={}; for i,v in pairs(t) do nt[i]=v end; return nt end
 	local function printy(thing, prefix, tablestack)
@@ -36,8 +37,9 @@ end
 local webyld = require "webyld"
 
 webyld.serve("localhost", 8080, function(wsapi_env)
-	debug.print(wsapi_env)
 	local req = Request.new(wsapi_env)
-	debug.print(req)
+	local resp = Response.new(200)
+	resp:write("test test test")
+	return resp:finish()
 end)
 webyld.run()
