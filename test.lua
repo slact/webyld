@@ -35,11 +35,17 @@ function debug.print(...)
 end
 
 local webyld = require "webyld"
+local function bar()
+	foo.bar.baz=11
+end
 
 webyld.serve("localhost", 8080, function(wsapi_env)
 	local req = Request.new(wsapi_env)
 	local resp = Response.new(200)
+	resp:content_type("text/plain")
+	resp:write("you asked for" .. req.path_info)
 	resp:write("test test test")
+	bar()
 	return resp:finish()
 end)
 webyld.run()

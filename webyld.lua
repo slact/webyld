@@ -1,18 +1,38 @@
-local ev = require("ev")
+local ev = require "ev"
 local socket = require "socket"
 local lhp = require "http.parser"
-local parsers = setmetatable({}, {__mode='k'})
-local string = string
+local assert, type, setmetatable, rawget, io = assert, type, setmetatable, rawget, io
 local tinsert, tremove, tconcat = table.insert, table.remove, table.concat
 local common = require "wsapi.common"
 require "coxpcall"
-
-module("webyld", package.seeall)  -- Yet Another Lua http Server
+local copcall, coxpcall = copcall, coxpcall
+local print=print
+require "debug"
+local traceback = debug.traceback
+module "webyld"   -- Yet Another Lua http Server
 
 local newEv = ev.IO.new
 local blanks = { __index = function() return "" end }
 local case_insensitive = {__index = function(t,k) return rawget(t, k:lower()) end }
 
+local err = function(e)
+	return e
+end
+local function handle_request(wsapi_env, parser, callback)
+	local success, status_code, headers, body_iter = coxpcall(function() callback(wsapi_env) end, err)
+	if success then
+		if not parser:should_keep_alive() then
+			headers.Connection='close'
+		end
+		assert(type(status_code)=='number', "Status code (first return parameter) must be a number.")
+		assert(type(headers)=='table', "Headers table (first return parameter) must obviously be a table.")
+		common.send_output(wsapi_env.output, status_code, headers, body_iter, nil, true)
+		--don't check resp_body_iter, it's a tiny bit tricky (functions, callable tables, and coroutines are all okay)
+	else
+		common.send_error(wsapi_env.output, wsapi_env.error, status_code, nil, nil, true)
+	end
+
+end
 local function init_parser(ip, loop, client, callback)
 	
 	local parser
@@ -20,7 +40,7 @@ local function init_parser(ip, loop, client, callback)
 		client:settimeout(0)
 		repeat
 			local r, err = client:receive('*l')
-			print("read ".. (r and #r or 0) .. " bytes", err)
+			--print("read ".. (r and #r or 0) .. " bytes", err)
 			if r then
 				assert(parser:execute(r .. "\r\n"))
 			elseif err=="closed" then
@@ -36,7 +56,7 @@ local function init_parser(ip, loop, client, callback)
 	local body = ""
 	local output_buffer = {}
 	local writeEv = newEv(function(loop, watcher, ev)
-		print("write event", watcher)
+		--print("write event", watcher)
 		--this is the writer. it, um, writes
 		if #output_buffer > 0 then
 			local out = tconcat(output_buffer) --should there be a /r/n separator here?
@@ -46,7 +66,7 @@ local function init_parser(ip, loop, client, callback)
 		else
 			--nothing to write -- stop trying for now.
 			watcher:stop(loop)
-			print("stopped watching for write events")
+			--print("stopped watching for write events")
 		end
 	end, client:getfd(), ev.WRITE)
 
@@ -76,7 +96,7 @@ local function init_parser(ip, loop, client, callback)
 				assert(type(str)=='string', type(str))
 				tinsert(output_buffer, str)
 				if #output_buffer == 1 then
-					print("started watching write events")
+					--print("started watching write events")
 					writeEv:start(loop, true)
 				end
 				return #str
@@ -103,16 +123,8 @@ local function init_parser(ip, loop, client, callback)
 			wsapi_env.REQUEST_METHOD = parser:method()
 			
 			wsapi_env.headers = headers
-			local success, status_code, headers, body_iter = copcall(callback, wsapi_env)
-			if not parser:should_keep_alive() then
-				headers.Connection='close'
-			end
-			if success then
-				common.send_output(wsapi_env.output, status_code, headers, body_iter, nil, true)
-			else
-				common.send_error(wsapi_env.output, wsapi_env.error, "WSAPI application callback failed")
-			end
-			
+
+			handle_request(wsapi_env, parser, callback)
 		end,
 		on_url = function(request_url)
 			url = request_url
@@ -135,7 +147,7 @@ local function init_parser(ip, loop, client, callback)
 end
 
 local function accept_client(client, loop, callback)
-	print("accepted new client ", client)
+	--print("accepted new client ", client)
 	local resume_read
 	local wsapi_callback = function(...)
 		callback(...)
