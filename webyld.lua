@@ -1,7 +1,7 @@
 local ev = require "ev"
 local socket = require "socket"
 local lhp = require "http.parser"
-local assert, type, setmetatable, rawget, io = assert, type, setmetatable, rawget, io
+local assert, type, setmetatable, rawget, io, tonumber = assert, type, setmetatable, rawget, io, tonumber
 local tinsert, tremove, tconcat = table.insert, table.remove, table.concat
 local common = require "wsapi.common"
 require "coxpcall"
@@ -119,7 +119,7 @@ local function init_parser(ip, loop, client, callback)
 		on_message_complete = function()
 			local host, port = (headers.Host or ""):match("([^:]+):?(%d*)")
 			wsapi_env.SERVER_NAME = host			
-			wsapi_env.SERVER_PORT = port or 80
+			wsapi_env.SERVER_PORT = tonumber(port) or 80
 			wsapi_env.REQUEST_METHOD = parser:method()
 			
 			wsapi_env.headers = headers

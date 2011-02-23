@@ -47,4 +47,7 @@ webyld.serve("localhost", 8080, function(wsapi_env)
 	resp:write("\r\ntest test test")
 	return resp:finish()
 end)
+
+require "webyld.filehandler"
+webyld.serve("localhost", 8081, webyld.filehandler("/home/leop/sandbox/webyld"))
 webyld.run()
