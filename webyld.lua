@@ -19,13 +19,13 @@ local err = function(e)
 	return e
 end
 local function handle_request(wsapi_env, parser, callback)
-	local success, status_code, headers, body_iter = coxpcall(function() callback(wsapi_env) end, err)
+	local success, status_code, headers, body_iter = coxpcall(function() return callback(wsapi_env) end, err)
 	if success then
+		assert(type(status_code)=='number', "Status code (first return parameter) must be a number.")
+		assert(type(headers)=='table', "Headers table (first return parameter) must obviously be a table.")
 		if not parser:should_keep_alive() then
 			headers.Connection='close'
 		end
-		assert(type(status_code)=='number', "Status code (first return parameter) must be a number.")
-		assert(type(headers)=='table', "Headers table (first return parameter) must obviously be a table.")
 		common.send_output(wsapi_env.output, status_code, headers, body_iter, nil, true)
 		--don't check resp_body_iter, it's a tiny bit tricky (functions, callable tables, and coroutines are all okay)
 	else
